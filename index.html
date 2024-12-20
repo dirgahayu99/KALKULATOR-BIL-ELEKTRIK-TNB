@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Bil Elektrik TNB</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: url(images/Tenaga-Nasional_20210907181622_www.tnb_.com_.my_-2389689631_upscayl_2x_realesrgan-x4plus.png);
+            background-size: cover;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto; /* add space from top */
+            background: rgba(255, 255, 255, 0.9); /* white background */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 96%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 5px solid #4CAF50;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        th {
+            font-weight: bold;
+        }
+
+        /* th2 {
+            text-align:left;
+            padding: 8px;
+        } 
+
+        th2 {
+            font-weight: bold;
+        }  */
+
+        .highlight {
+            font-weight: bold;
+            color: #d9534f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Kalkulator Bil Elektrik TNB</h1>
+        <label for="units">Masukkan Nilai Unit yang Digunapakai:</label>
+        <input type="number" id="units" placeholder="e.g., 426" min="0">
+
+        <button onclick="calculateBill()">Kira</button>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        function calculateBill() {
+            // Define rates for each tier and ICPT
+            const rates = [
+                { range: "Untuk 200 kWh (1-200 kWh) pertama sebulan: (200 * 21.8)/100", rate: 0.218, maxUnits: 200 },
+                { range: "100 kWh (201-300 kWh) seterusnya sebulan: (100 * 33.4)/100", rate: 0.334, maxUnits: 100 },
+                { range: "300 kWh (301-600 kWh) seterusnya sebulan: (200 * 51.6)/100", rate: 0.516, maxUnits: 300 },
+                { range: "300 kWh (601-900 kWh) seterusnya sebulan: (200 * 54.6)/100", rate: 0.546, maxUnits: 300 },
+                { range: "(900 kWh dan keatas) seterusnya sebulan: (200 * 57.1)/100", rate: 0.571, maxUnits: Infinity }
+            ];
+            const icptRate = -0.02; // ICPT rate per kWh
+            const surchargeRate = 0.08; // 8% surcharge for units > 6001 kwH
+            
+            // Get user input
+            const units = parseFloat(document.getElementById("units").value);
+
+            // Validate input
+            if (isNaN(units) || units < 0) {
+                document.getElementById("result").innerHTML = "<p>Sila masukkan nilai unit yang sah.</p>";
+                return;
+            }
+
+            // Calculate the bill
+            let remainingUnits = units;
+            let totalCost = 0;
+            let surcharge = 0;
+            let icptDeduction = 0; 
+            let breakdown = `<table>
+                                <thead>
+                                    <tr>
+                                        <th>Tariff</th>
+                                        <th>Kos (RM)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+
+            //Calculate tiered costs
+            for (let tier of rates) {
+                if (remainingUnits > 0) {
+                    const tierUnits = Math.min(remainingUnits, tier.maxUnits);
+                    const tierCost = tierUnits * tier.rate;
+
+                    totalCost += tierCost;
+
+                    // Add a row for each tier
+                    breakdown += `<tr>
+                                    <td>${tier.range}</td>
+                                    <td style="text-align: left;">RM ${tierCost.toFixed(2)}</td>
+                                  </tr>`;
+
+                    remainingUnits -= tierUnits;
+                }
+            }
+
+            //Apply ICPT deduction if units <= 600
+            if (units <= 600) {
+                icptDeduction = units * icptRate;
+            }
+
+            //Apply 8% surcharge for units > 601
+            if (units > 600) {
+                let extraUnitsAbove600 = units - 600; // Units beyond 600kWh
+                let extraCostAbove600 = 0;
+
+                if (extraUnitsAbove600 > 300) {
+                    // Calculate for 601-900 kWh (300kWh at 0.546)
+                    extraCostAbove600 += 300 * 0.546;
+
+                    // Calculate for >90 kWh (remaining units at 0.571)
+                    extraCostAbove600 += (extraUnitsAbove600 - 300) * 0.571;
+
+                }else{
+                    extraCostAbove600 += extraUnitsAbove600 * 0.546;
+                }
+
+                surcharge = surchargeRate * extraCostAbove600;
+            }
+
+            // Apply ICPT deduction
+            const finalCost = totalCost + surcharge + icptDeduction;
+
+            // Display results
+            breakdown += `</tbody></table>`;
+            document.getElementById("result").innerHTML = `
+                <p><strong>Penjelasan:</strong></p>
+                ${breakdown}
+                <p><strong>Anggaran Bill:</strong> RM ${totalCost.toFixed(2)}</p>
+                <p>8% ST untuk > 600 kwH: RM ${surcharge.toFixed(2)}</p>
+                <p>ICPT (-RM0.02 per kWh, sehingga 600 kwH): RM ${icptDeduction.toFixed(2)}</p>
+                <p class="highlight">Kegunaan Bulan Semasa (RM): RM ${finalCost.toFixed(2)}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
